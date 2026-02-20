@@ -1,0 +1,7 @@
+{
+  "take_profit_pct": 0.02,
+  "trail_atr_mult": 1.8,
+  "breakeven_trigger_pct": 0.01,
+  "entry_min_indicators": 2,
+  "stop_atr_mult": 1.2
+}
