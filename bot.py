@@ -113,7 +113,7 @@ GOOD_ENTRY_COMBOS = {
 BOT_STATE_FILE = Path(__file__).resolve().parent / ".bot_state.json"
 CAPITAL_PCT = 0.30
 # Crypto-friendly: wider TP and stop so volatile moves don’t get cut early
-TAKE_PROFIT_PCT = 0.10   # 10%
+TAKE_PROFIT_PCT = 0.5   # 10%
 STOP_ATR_MULT = 2.5
 
 
@@ -425,5 +425,6 @@ def run_bot() -> None:
             logger.exception("Cycle error: %s", e)
         logger.info("Sleeping %s seconds...", interval)
         time.sleep(interval)
+
 
 
