@@ -63,8 +63,6 @@ logger = logging.getLogger(__name__)
 
 # Indicator combinations to skip as entry (normalized as sorted tags joined by '+')
 BAD_ENTRY_COMBOS = {
-    "adx+aroon+fib+macd+rsi",
-    "adx+aroon+fib+macd+rsi+stoch",
     "adx+aroon+fib+stoch",
     "adx+aroon+bb",
     "adx+aroon+bb+rsi",
@@ -76,14 +74,12 @@ BAD_ENTRY_COMBOS = {
     "adx+aroon+rsi",
     "adx+fib",
     "adx+fib+macd+rsi",
-    "adx+fib+macd+rsi+stoch",
     "adx+rsi",
     "adx+rsi+sr",
     "adx+macd+rsi",
     "adx+macd+rsi+sr",
     "aroon+bb+rsi",
     "aroon",
-    "aroon+fib+macd+rsi+stoch",
     "aroon+macd+rsi",
     "aroon+sr",
     "aroon+stoch",
@@ -429,4 +425,5 @@ def run_bot() -> None:
             logger.exception("Cycle error: %s", e)
         logger.info("Sleeping %s seconds...", interval)
         time.sleep(interval)
+
 
