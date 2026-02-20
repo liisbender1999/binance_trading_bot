@@ -529,7 +529,7 @@ MAX_TP_PCT = 0.50             # cap target at 50%
 
 # Dynamic TP/SL with EMA and ADX: first target 5%, +5% steps; stop = fixed % ladder
 DYNAMIC_TP_FIRST_PCT = 0.05      # first take profit level 5%
-DYNAMIC_TP_STEP_PCT = 0.05       # then +5% each step (12%, 17%, 22%, …)
+DYNAMIC_TP_STEP_PCT = 0.03       # then +5% each step (12%, 17%, 22%, …)
 INITIAL_STOP_PCT = 0.03          # initial stop 3% below entry; then 0%, then previous targets as we advance
 EMA_TP_PERIOD = 20            # EMA period for "hold or take profit" at target
 ADX_TP_THRESHOLD = 25         # ADX >= this = strong trend → hold; below = take profit
@@ -702,3 +702,4 @@ def should_exit_tp_sl_trailing(
             return True, "trailing_stop"
         return True, "stop_loss"
     return False, ""
+
