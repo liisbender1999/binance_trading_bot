@@ -6,3 +6,4 @@ __pycache__/
 .idea/
 .vscode/
 *.log
+USE_DYNAMIC_TP_EMA_ADX=true
