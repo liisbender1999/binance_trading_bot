@@ -70,9 +70,6 @@ BAD_ENTRY_COMBOS = {
     "adx+aroon+bb+rsi",
     "adx+aroon+bb+sr",
     "adx+aroon+bb+rsi+sr",
-    "adx+aroon+macd+rsi",
-    "adx+aroon+macd+rsi+sr",
-    "adx+aroon+macd+rsi+stoch",
     "adx+aroon+rsi+sr",
     "adx+aroon+stoch",
     "adx+aroon",
@@ -432,3 +429,4 @@ def run_bot() -> None:
             logger.exception("Cycle error: %s", e)
         logger.info("Sleeping %s seconds...", interval)
         time.sleep(interval)
+
