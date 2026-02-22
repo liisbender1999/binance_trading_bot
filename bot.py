@@ -296,7 +296,7 @@ def run_once(client: _Client) -> None:
                 sell_qty = lot["shares"]
                 if sell_qty >= 1e-9:
                     # Alpaca stocks need int qty; crypto can be fractional
-                    qty_to_sell = int(sell_qty) if sell_qty == int(sell_qty) else sell_qty
+                    qty_to_sell = min(qty_to_sell, available_btc)
                     client.submit_market_order(side="sell", qty=qty_to_sell)
                     if _db_available:
                         realized_pnl = (current_price - float(lot["entry_price"])) * sell_qty
@@ -425,6 +425,7 @@ def run_bot() -> None:
             logger.exception("Cycle error: %s", e)
         logger.info("Sleeping %s seconds...", interval)
         time.sleep(interval)
+
 
 
 
