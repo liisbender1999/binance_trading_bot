@@ -1,5 +1,6 @@
 """Binance USD-M Futures API client (demo/paper trading with leverage)."""
 import logging
+import time
 from typing import Optional
 
 import pandas as pd
@@ -148,13 +149,21 @@ class BinanceClient:
         timeframe: str = "1Day",
         limit: int = 100,
     ) -> pd.DataFrame:
-        """Get OHLCV bars. Returns DataFrame with close, high, low and time index."""
+        """Get OHLCV bars. Returns DataFrame with close, high, low and time index. Retries on failure (demo API can be flaky)."""
         sym = symbol or self.symbol
         tf = _timeframe_to_binance(timeframe)
-        try:
-            ohlcv = self._exchange.fetch_ohlcv(sym, tf, limit=limit)
-        except Exception as e:
-            logger.warning("fetch_ohlcv failed: %s", e)
+        last_error = None
+        for attempt in range(3):
+            try:
+                ohlcv = self._exchange.fetch_ohlcv(sym, tf, limit=limit)
+                break
+            except Exception as e:
+                last_error = e
+                logger.warning("fetch_ohlcv attempt %d/3 failed: %s", attempt + 1, e)
+                if attempt < 2:
+                    time.sleep(2)
+        else:
+            logger.warning("fetch_ohlcv failed after 3 attempts: %s", last_error)
             return pd.DataFrame()
         if not ohlcv:
             return pd.DataFrame()
