@@ -59,12 +59,16 @@ logger = logging.getLogger(__name__)
 
 # Indicator combinations to skip as entry (normalized as sorted tags joined by '+')
 BAD_ENTRY_COMBOS = {
+    "adx+aroon+fib+macd+rsi",
+    "adx+aroon+fib+macd+rsi+stoch",
     "adx+aroon+fib+stoch",
     "adx+aroon+bb",
     "adx+aroon+bb+rsi",
     "adx+aroon+bb+sr",
     "adx+aroon+bb+rsi+sr",
     "adx+aroon+macd+rsi",
+    "adx+aroon+macd+rsi+sr",
+    "adx+aroon+macd+rsi+stoch",
     "adx+aroon+rsi+sr",
     "adx+aroon+stoch",
     "adx+aroon",
@@ -78,6 +82,7 @@ BAD_ENTRY_COMBOS = {
     "adx+macd+rsi+sr",
     "aroon+bb+rsi",
     "aroon",
+    "aroon+fib+macd+rsi+stoch",
     "aroon+macd+rsi",
     "aroon+sr",
     "aroon+stoch",
@@ -109,6 +114,8 @@ GOOD_ENTRY_COMBOS = {
 
 # State file: list of lots (entry_price, atr_at_entry, high_water_mark, shares), symbol; max MAX_POSITIONS lots
 BOT_STATE_FILE = Path(__file__).resolve().parent / ".bot_state.json"
+# Cache last good bars so we can still run exit checks when Binance demo API fails briefly
+_last_bars_cache: dict = {}
 CAPITAL_PCT = 0.30
 # Crypto-friendly: wider TP and stop so volatile moves don’t get cut early
 TAKE_PROFIT_PCT = 0.05   # 5% first target (dynamic TP uses this + 3% steps)
@@ -191,9 +198,23 @@ def run_once(client: _Client) -> None:
 
     bars = client.get_bars(timeframe=BAR_TIMEFRAME, limit=BAR_LIMIT)
     n_bars = 0 if bars.empty else len(bars)
+    use_cached_bars = False
     if bars.empty or n_bars < MIN_BARS:
-        logger.warning("Not enough bars for strategy: got %d (need %d+).", n_bars, MIN_BARS)
-        return
+        cache_key = (client.symbol, BAR_TIMEFRAME)
+        cached = _last_bars_cache.get(cache_key)
+        if cached is not None and len(cached) >= MIN_BARS:
+            state = load_state()
+            lots = state.get("lots") or []
+            if lots:
+                bars = cached
+                n_bars = len(bars)
+                use_cached_bars = True
+                logger.warning("Using cached bars (%d) for exit checks after fetch failed.", n_bars)
+        if not use_cached_bars:
+            logger.warning("Not enough bars for strategy: got %d (need %d+).", n_bars, MIN_BARS)
+            return
+    else:
+        _last_bars_cache[(client.symbol, BAR_TIMEFRAME)] = bars.copy()
 
     position = client.get_position(client.symbol)
     has_position = position is not None and int(float(position.qty)) != 0
@@ -321,7 +342,8 @@ def run_once(client: _Client) -> None:
         save_state_lots(lots, client.symbol, last_entry_date)
 
     # --- Entry: when 2 indicators met and we have room for another lot (max 4) ---
-    if len(lots) < MAX_POSITIONS:
+    # Skip entry when using cached bars (stale data) so we only run exit checks
+    if not use_cached_bars and len(lots) < MAX_POSITIONS:
         result = compute_signal(bars)
         logger.info("Signal: %s (%s) | lots=%d/%d", result.signal, result.reason, len(lots), MAX_POSITIONS)
         if result.signal == "buy" and result.atr_at_entry is not None:
@@ -423,5 +445,3 @@ def run_bot() -> None:
             logger.exception("Cycle error: %s", e)
         logger.info("Sleeping %s seconds...", interval)
         time.sleep(interval)
-
-
