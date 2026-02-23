@@ -8,11 +8,7 @@ from typing import Optional
 
 from datetime import datetime
 
-from config import BROKER
-if BROKER == "binance":
-    from binance_client import BinanceClient as _Client
-else:
-    from alpaca_client import AlpacaClient as _Client
+from binance_client import BinanceClient as _Client
 
 # No-ops when db module is missing (e.g. db.py not in deploy); always defined to avoid NameError
 def _db_noop(*args, **kwargs):
@@ -68,12 +64,14 @@ BAD_ENTRY_COMBOS = {
     "adx+aroon+bb+rsi",
     "adx+aroon+bb+sr",
     "adx+aroon+bb+rsi+sr",
+    "adx+aroon+macd+rsi",
     "adx+aroon+rsi+sr",
     "adx+aroon+stoch",
     "adx+aroon",
     "adx+aroon+rsi",
     "adx+fib",
     "adx+fib+macd+rsi",
+    "adx+fib+macd+rsi+stoch",
     "adx+rsi",
     "adx+rsi+sr",
     "adx+macd+rsi",
@@ -113,7 +111,7 @@ GOOD_ENTRY_COMBOS = {
 BOT_STATE_FILE = Path(__file__).resolve().parent / ".bot_state.json"
 CAPITAL_PCT = 0.30
 # Crypto-friendly: wider TP and stop so volatile moves don’t get cut early
-TAKE_PROFIT_PCT = 0.5   # 10%
+TAKE_PROFIT_PCT = 0.05   # 5% first target (dynamic TP uses this + 3% steps)
 STOP_ATR_MULT = 2.5
 
 
@@ -169,7 +167,7 @@ def clear_state() -> None:
 
 
 def _is_crypto_symbol(symbol: str) -> bool:
-    """True if symbol is crypto (24/7 market). Alpaca: BTCUSD; Binance: BTCUSDT."""
+    """True if symbol is crypto (24/7 market). Binance: BTCUSDT."""
     if not symbol:
         return False
     s = symbol.upper().strip()
@@ -294,9 +292,10 @@ def run_once(client: _Client) -> None:
                     )
             if should_exit:
                 sell_qty = lot["shares"]
+                # Set qty_to_sell first so it's always defined before any cap (e.g. min(qty_to_sell, available_btc))
+                qty_to_sell = int(sell_qty) if sell_qty == int(sell_qty) else sell_qty
                 if sell_qty >= 1e-9:
-                    # Alpaca stocks need int qty; crypto can be fractional
-                    qty_to_sell = min(qty_to_sell, available_btc)
+                    # Binance Futures: qty in base asset (e.g. BTC), fractional allowed
                     client.submit_market_order(side="sell", qty=qty_to_sell)
                     if _db_available:
                         realized_pnl = (current_price - float(lot["entry_price"])) * sell_qty
@@ -404,8 +403,7 @@ def run_bot() -> None:
     tp_pct, trail_atr, stop_atr = _tp_trail_stop()
     interval = _check_interval()
     logger.info(
-        "Bot started. broker=%s, mode=%s, timeframe=%s, status=%s, symbol=%s, paper=%s, capital_pct=%.0f%%, TP=%.2f%%, trail=%.1fxATR, SL=%.1fxATR, check_every=%ds",
-        BROKER,
+        "Bot started. broker=binance, mode=%s, timeframe=%s, status=%s, symbol=%s, paper=%s, capital_pct=%.0f%%, TP=%.2f%%, trail=%.1fxATR, SL=%.1fxATR, check_every=%ds",
         BOT_MODE,
         BAR_TIMEFRAME,
         account.status,
@@ -425,7 +423,5 @@ def run_bot() -> None:
             logger.exception("Cycle error: %s", e)
         logger.info("Sleeping %s seconds...", interval)
         time.sleep(interval)
-
-
 
 
