@@ -184,14 +184,18 @@ class BinanceClient:
         price: float = 0.0,
         symbol: Optional[str] = None,
     ) -> float:
-        """Compute quantity (in base asset, e.g. BTC) for pct of USDT balance. Fractional allowed."""
+        """Compute quantity (in base asset, e.g. BTC) for pct of USDT balance, scaled by futures leverage.
+
+        Example: pct=0.30 and BINANCE_LEVERAGE=10 -> ~300% notional exposure (30% margin at 10x).
+        """
         if price <= 0:
             trade = self.get_latest_trade(symbol or self.symbol)
             price = float(trade.price) if trade else 0
         if price <= 0:
             return 0.0
         account = self.get_account()
-        value = account.buying_power * pct
+        # Use pct of balance as margin, scaled by futures leverage to get notional size
+        value = account.buying_power * pct * BINANCE_LEVERAGE
         qty = value / price
         # Binance Futures: round to symbol's lot size; use 6 decimals for BTC
         return max(0.0, round(qty, 6))
@@ -230,3 +234,4 @@ class BinanceClient:
         class Clock:
             is_open = True
         return Clock()
+
