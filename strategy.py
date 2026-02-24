@@ -529,7 +529,7 @@ MAX_TP_PCT = 0.50             # cap target at 50%
 
 # Dynamic TP/SL with EMA and ADX: first target 5%, +5% steps; stop = fixed % ladder
 DYNAMIC_TP_FIRST_PCT = 0.05      # first take profit level 5%
-DYNAMIC_TP_STEP_PCT = 0.03       # then +5% each step (12%, 17%, 22%, …)
+DYNAMIC_TP_STEP_PCT = 0.03       # then +3% each step (8%, 11%, 14%, …)
 INITIAL_STOP_PCT = 0.03          # initial stop 3% below entry; then 0%, then previous targets as we advance
 EMA_TP_PERIOD = 20            # EMA period for "hold or take profit" at target
 ADX_TP_THRESHOLD = 25         # ADX >= this = strong trend → hold; below = take profit
@@ -612,6 +612,7 @@ def should_exit_dynamic_ema_adx(
     Returns (should_exit, reason, new_current_target_pct, new_raised_stop).
     """
     if entry_price <= 0:
+        logger.debug("exit[ema_adx]: skip (entry_price<=0)")
         return False, "", current_target_pct, raised_stop
 
     # Manual, stepped stop ladder:
@@ -626,10 +627,25 @@ def should_exit_dynamic_ema_adx(
     if current_price <= effective_stop:
         # Outcome-based: stop_loss only when actual loss; raised_stop when we lock in profit or breakeven
         reason = "stop_loss" if current_price < entry_price else "raised_stop"
+        logger.info(
+            "exit[ema_adx]: %s at stop %.4f (entry=%.4f, price=%.4f, target=%.2f%%, raised_stop=%s)",
+            reason,
+            effective_stop,
+            entry_price,
+            current_price,
+            current_target_pct * 100,
+            f\"{raised_stop:.4f}\" if raised_stop is not None else \"None\",
+        )
         return True, reason, current_target_pct, raised_stop
 
     current_tp_price = entry_price * (1 + current_target_pct)
     if current_price < current_tp_price:
+        logger.debug(
+            "exit[ema_adx]: hold below target (price=%.4f, tp_price=%.4f, target=%.2f%%)",
+            current_price,
+            current_tp_price,
+            current_target_pct * 100,
+        )
         return False, "", current_target_pct, raised_stop
 
     # At or past current target: use EMA and ADX to hold or take profit
@@ -647,14 +663,54 @@ def should_exit_dynamic_ema_adx(
             # Take profit when momentum fading (price below EMA) or trend weak/weakening (ADX low or falling)
             if current_price <= curr_ema:
                 take_profit_here = True   # price below EMA → take profit
+                logger.info(
+                    "exit[ema_adx]: take_profit (price<=EMA) price=%.4f ema=%.4f adx=%.2f prev_adx=%.2f target=%.2f%%",
+                    current_price,
+                    curr_ema,
+                    curr_adx,
+                    adx_prev,
+                    current_target_pct * 100,
+                )
             elif curr_adx < adx_threshold:
                 take_profit_here = True   # weak trend → take profit
+                logger.info(
+                    "exit[ema_adx]: take_profit (ADX<threshold) price=%.4f ema=%.4f adx=%.2f<th=%.2f target=%.2f%%",
+                    current_price,
+                    curr_ema,
+                    curr_adx,
+                    float(adx_threshold),
+                    current_target_pct * 100,
+                )
             elif curr_adx < adx_prev:
                 take_profit_here = True   # ADX falling → take profit
+                logger.info(
+                    "exit[ema_adx]: take_profit (ADX falling) price=%.4f ema=%.4f adx=%.2f<prev=%.2f target=%.2f%%",
+                    current_price,
+                    curr_ema,
+                    curr_adx,
+                    adx_prev,
+                    current_target_pct * 100,
+                )
             else:
                 take_profit_here = False  # hold: price above EMA, ADX strong and rising
+                logger.info(
+                    "exit[ema_adx]: hold (trend strong) price=%.4f ema=%.4f adx=%.2f>=max(th=%.2f, prev=%.2f) target=%.2f%%",
+                    current_price,
+                    curr_ema,
+                    curr_adx,
+                    float(adx_threshold),
+                    adx_prev,
+                    current_target_pct * 100,
+                )
 
     if take_profit_here:
+        logger.info(
+            "exit[ema_adx]: TAKE PROFIT at target %.2f%% (price=%.4f entry=%.4f raised_stop=%s)",
+            current_target_pct * 100,
+            current_price,
+            entry_price,
+            f\"{raised_stop:.4f}\" if raised_stop is not None else \"None\",
+        )
         return True, "take_profit", current_target_pct, raised_stop
 
     # Hold: move stop to previous target (first hit -> breakeven, then each step locks previous level)
@@ -664,6 +720,12 @@ def should_exit_dynamic_ema_adx(
         prev_target_pct = current_target_pct - tp_step_pct
         new_raised_stop = entry_price * (1 + prev_target_pct)
     next_target = min(current_target_pct + tp_step_pct, max_tp_pct)
+    logger.info(
+        "exit[ema_adx]: HOLD, move stop to %.4f and next target to %.2f%% (current=%.2f%%)",
+        new_raised_stop,
+        next_target * 100,
+        current_target_pct * 100,
+    )
     return False, "", next_target, new_raised_stop
 
 
