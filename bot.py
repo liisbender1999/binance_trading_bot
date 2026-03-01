@@ -38,10 +38,14 @@ from config import (
     SCALP_CHECK_INTERVAL,
     MAX_POSITIONS,
     TRADE_CRYPTO,
+    USE_FIXED_TP_SL,
+    FIXED_TP_PCT,
+    FIXED_SL_PCT,
     USE_DYNAMIC_TP_EMA_ADX,
 )
 from strategy import (
     compute_signal,
+    should_exit_fixed_tp_sl,
     should_exit_tp_sl_trailing,
     should_exit_dynamic_ema_adx,
     atr as atr_fn,
@@ -59,23 +63,30 @@ logger = logging.getLogger(__name__)
 
 # Indicator combinations to skip as entry (normalized as sorted tags joined by '+')
 BAD_ENTRY_COMBOS = {
+    "adx+aroon+fib+macd+rsi",
+    "adx+aroon+fib+macd+rsi+stoch",
+    "adx+aroon+fib+stoch",
     "adx+aroon+bb",
     "adx+aroon+bb+rsi",
     "adx+aroon+bb+sr",
     "adx+aroon+bb+rsi+sr",
     "adx+aroon+macd+rsi",
+    "adx+aroon+macd+rsi+sr",
+    "adx+aroon+macd+rsi+stoch",
     "adx+aroon+rsi+sr",
     "adx+aroon+stoch",
     "adx+aroon",
     "adx+aroon+rsi",
     "adx+fib",
     "adx+fib+macd+rsi",
+    "adx+fib+macd+rsi+stoch",
     "adx+rsi",
     "adx+rsi+sr",
     "adx+macd+rsi",
     "adx+macd+rsi+sr",
     "aroon+bb+rsi",
     "aroon",
+    "aroon+fib+macd+rsi+stoch",
     "aroon+macd+rsi",
     "aroon+sr",
     "aroon+stoch",
@@ -111,7 +122,7 @@ BOT_STATE_FILE = Path(__file__).resolve().parent / ".bot_state.json"
 _last_bars_cache: dict = {}
 CAPITAL_PCT = 0.30
 # Crypto-friendly: wider TP and stop so volatile moves don’t get cut early
-TAKE_PROFIT_PCT = 0.05   # 5% first target (dynamic TP uses this + 3% steps)
+TAKE_PROFIT_PCT = 0.015  # 1.5% first target (when not using dynamic TP)
 STOP_ATR_MULT = 2.5
 
 
@@ -278,7 +289,14 @@ def run_once(client: _Client) -> None:
                     reason = "max_hold"
 
             if not should_exit:
-                if USE_DYNAMIC_TP_EMA_ADX:
+                if USE_FIXED_TP_SL:
+                    should_exit, reason = should_exit_fixed_tp_sl(
+                        current_price,
+                        float(lot["entry_price"]),
+                        tp_pct=FIXED_TP_PCT,
+                        sl_pct=FIXED_SL_PCT,
+                    )
+                elif USE_DYNAMIC_TP_EMA_ADX:
                     tp_first = lot.get("tp_first_pct", DYNAMIC_TP_FIRST_PCT)
                     tp_step = lot.get("tp_step_pct", DYNAMIC_TP_STEP_PCT)
                     target_pct = lot.get("current_target_pct", tp_first)
@@ -417,19 +435,33 @@ def run_bot() -> None:
     account = client.get_account()
     tp_pct, trail_atr, stop_atr = _tp_trail_stop()
     interval = _check_interval()
-    logger.info(
-        "Bot started. broker=binance, mode=%s, timeframe=%s, status=%s, symbol=%s, paper=%s, capital_pct=%.0f%%, TP=%.2f%%, trail=%.1fxATR, SL=%.1fxATR, check_every=%ds",
-        BOT_MODE,
-        BAR_TIMEFRAME,
-        account.status,
-        client.symbol,
-        getattr(client, "is_paper", False),
-        CAPITAL_PCT * 100,
-        tp_pct * 100,
-        trail_atr,
-        stop_atr,
-        interval,
-    )
+    if USE_FIXED_TP_SL:
+        logger.info(
+            "Bot started. broker=binance, mode=%s, timeframe=%s, status=%s, symbol=%s, paper=%s, capital_pct=%.0f%%, TP=%.2f%%, SL=%.2f%% (fixed), check_every=%ds",
+            BOT_MODE,
+            BAR_TIMEFRAME,
+            account.status,
+            client.symbol,
+            getattr(client, "is_paper", False),
+            CAPITAL_PCT * 100,
+            FIXED_TP_PCT * 100,
+            FIXED_SL_PCT * 100,
+            interval,
+        )
+    else:
+        logger.info(
+            "Bot started. broker=binance, mode=%s, timeframe=%s, status=%s, symbol=%s, paper=%s, capital_pct=%.0f%%, TP=%.2f%%, trail=%.1fxATR, SL=%.1fxATR, check_every=%ds",
+            BOT_MODE,
+            BAR_TIMEFRAME,
+            account.status,
+            client.symbol,
+            getattr(client, "is_paper", False),
+            CAPITAL_PCT * 100,
+            tp_pct * 100,
+            trail_atr,
+            stop_atr,
+            interval,
+        )
 
     while True:
         try:
@@ -438,4 +470,3 @@ def run_bot() -> None:
             logger.exception("Cycle error: %s", e)
         logger.info("Sleeping %s seconds...", interval)
         time.sleep(interval)
-

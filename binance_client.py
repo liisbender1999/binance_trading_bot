@@ -234,4 +234,3 @@ class BinanceClient:
         class Clock:
             is_open = True
         return Clock()
-

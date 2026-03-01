@@ -22,15 +22,14 @@ from backtest import (
 
 
 def _symbol_to_ccxt(symbol: str) -> str:
-    """BTCUSD -> BTC/USDT, ETHUSD -> ETH/USDT."""
+    """Map our symbol to Binance USD-M Futures symbol (e.g. BTCUSD -> BTCUSDT)."""
     s = (symbol or "BTCUSD").strip().upper()
     if s.endswith("USDT"):
-        base = s[:-4]
-        return f"{base}/USDT"
+        return s
     if s.endswith("USD") and len(s) >= 6:
         base = s[:-3]
-        return f"{base}/USDT"
-    return f"{s}/USDT"
+        return f"{base}USDT"
+    return f"{s}USDT"
 
 
 def _timeframe_to_binance(tf: str) -> str:
@@ -115,6 +114,9 @@ def fetch_binance_ohlcv(symbol_ccxt: str, timeframe: str, limit: int) -> pd.Data
 def main() -> None:
     from config import (
         MAX_POSITIONS,
+        USE_FIXED_TP_SL,
+        FIXED_TP_PCT,
+        FIXED_SL_PCT,
         USE_DYNAMIC_TP_EMA_ADX,
         SCALP_TP_PCT,
         SCALP_TRAIL_ATR_MULT,
@@ -237,12 +239,18 @@ def main() -> None:
             trail_atr_mult=trail,
             breakeven_trigger_pct=breakeven,
             max_positions=MAX_POSITIONS,
+            use_fixed_tp_sl=USE_FIXED_TP_SL,
+            fixed_tp_pct=FIXED_TP_PCT,
+            fixed_sl_pct=FIXED_SL_PCT,
             use_dynamic_ema_adx=USE_DYNAMIC_TP_EMA_ADX,
             max_hold_days=args.max_hold_days,
             indicator_overrides=indicator_overrides or None,
         )
     else:
-        dyn = "dynamic 5%+ EMA/ADX" if USE_DYNAMIC_TP_EMA_ADX else "TP 10%, trail 3xATR"
+        if USE_FIXED_TP_SL:
+            exit_desc = f"fixed TP={FIXED_TP_PCT*100:.1f}% SL={FIXED_SL_PCT*100:.1f}%"
+        else:
+            exit_desc = "dynamic 5%+ EMA/ADX" if USE_DYNAMIC_TP_EMA_ADX else "TP 10%, trail 3xATR"
         rsi_info = ""
         if indicator_overrides:
             parts = []
@@ -254,13 +262,16 @@ def main() -> None:
                 rsi_info = f", {', '.join(parts)}"
         print(
             f"Running backtest on {len(bars)} bars "
-            f"(30% capital, {dyn}, max {MAX_POSITIONS} lots{rsi_info})..."
+            f"(30% capital, {exit_desc}, max {MAX_POSITIONS} lots{rsi_info})..."
         )
         result = run_backtest(
             bars,
             initial_cash=args.cash,
             verbose=args.verbose,
             max_positions=MAX_POSITIONS,
+            use_fixed_tp_sl=USE_FIXED_TP_SL,
+            fixed_tp_pct=FIXED_TP_PCT,
+            fixed_sl_pct=FIXED_SL_PCT,
             use_dynamic_ema_adx=USE_DYNAMIC_TP_EMA_ADX,
             max_hold_days=args.max_hold_days,
             indicator_overrides=indicator_overrides or None,

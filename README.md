@@ -1,6 +1,6 @@
-# Alpaca Trading Bot
+# Trading Bot (Binance)
 
-A real trading bot that uses the Alpaca API (paper or live). It runs a **simple SMA crossover strategy** (10/20 day) on a configurable symbol and places market orders when the market is open.
+A trading bot for **Binance USD-M Futures** (crypto). It runs a multi-indicator strategy (RSI, MACD, BB, etc.) and places market orders with configurable leverage. Use demo/testnet for paper trading.
 
 ## Setup
 
@@ -21,20 +21,8 @@ A real trading bot that uses the Alpaca API (paper or live). It runs a **simple 
 3. **Configure environment**
 
    - Copy `.env.example` to `.env`.
-   - Add your Alpaca API key and secret from [Alpaca Dashboard](https://app.alpaca.markets/).
-   - Keep `ALPACA_BASE_URL=https://paper-api.alpaca.markets` for **paper trading** (no real money).
-   - For **live trading**, change to `ALPACA_BASE_URL=https://api.alpaca.markets` only when you’re ready.
-
-   Example `.env`:
-
-   ```
-   ALPACA_API_KEY=your_key
-   ALPACA_SECRET_KEY=your_secret
-   ALPACA_BASE_URL=https://paper-api.alpaca.markets
-   TRADE_SYMBOL=SPY
-   POSITION_SIZE=1
-   CHECK_INTERVAL_SECONDS=60
-   ```
+   - Set `BINANCE_API_KEY` and `BINANCE_SECRET_KEY` (use [Futures Testnet](https://testnet.binancefuture.com) for paper trading).
+   - Keep `BINANCE_TESTNET=true` for paper; set to `false` with live keys for real trading.
 
 ## Run the bot
 
@@ -42,22 +30,14 @@ A real trading bot that uses the Alpaca API (paper or live). It runs a **simple 
 python main.py
 ```
 
-- The bot checks the strategy every `CHECK_INTERVAL_SECONDS` (default 60).
-- It only trades when the market is open.
+- The bot checks the strategy every `CHECK_INTERVAL_SECONDS` (default 60). Crypto trades 24/7.
 - Stop with **Ctrl+C**.
 
 ## Backtest strategies (no real orders)
 
 Test the same strategy on historical data before going live.
 
-**Alpaca data** (uses your Alpaca credentials):
-
-```powershell
-python backtest.py
-python backtest.py --symbol BTCUSD --years 2 --cash 50000
-```
-
-**Binance data** (no API key needed; uses public klines — good before running the bot on Binance):
+**Binance data** (no API key needed; uses public klines):
 
 ```powershell
 python backtest_binance.py --symbol BTCUSD --years 2
@@ -66,7 +46,7 @@ python backtest_binance.py --symbol BTCUSD --timeframe 5Min --days 14 --show-tra
 ```
 
 - Reports total return %, max drawdown, number of trades, win rate.
-- **Strategy**: Edit `strategy.py`; the live bot and both backtests use `compute_signal()`, so any change is tested the same way.
+- **Strategy**: Edit `strategy.py`; the live bot and backtest use `compute_signal()`.
 
 ## Project layout
 
@@ -76,7 +56,7 @@ python backtest_binance.py --symbol BTCUSD --timeframe 5Min --days 14 --show-tra
 | `bot.py` | Main loop: fetch bars → signal → place/cancel orders. |
 | `backtest.py` | Backtest engine: run strategy on history, print report. |
 | `strategy.py` | SMA crossover: buy when fast SMA crosses above slow, sell when it crosses below. |
-| `alpaca_client.py` | Wrapper for Alpaca API (account, positions, bars, orders). |
+| `binance_client.py` | Wrapper for Binance USD-M Futures (account, positions, bars, orders). |
 | `config.py` | Loads settings from `.env`. |
 
 ## Customization

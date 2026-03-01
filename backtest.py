@@ -11,9 +11,9 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
-from alpaca_client import AlpacaClient
 from strategy import (
     compute_signal,
+    should_exit_fixed_tp_sl,
     should_exit_tp_sl_trailing,
     should_exit_dynamic,
     should_exit_dynamic_ema_adx,
@@ -104,6 +104,9 @@ def run_backtest(
     stop_atr_mult: float = None,
     trail_atr_mult: float = None,
     breakeven_trigger_pct: float = None,
+    use_fixed_tp_sl: bool = False,
+    fixed_tp_pct: float = 0.015,
+    fixed_sl_pct: float = 0.015,
     use_dynamic_tp_sl: bool = False,
     use_dynamic_ema_adx: bool = False,
     dynamic_tp_first_pct: float = None,
@@ -182,7 +185,13 @@ def run_backtest(
                     reason = "max_hold"
 
             if not should_exit:
-                if use_dynamic_ema_adx:
+                if use_fixed_tp_sl:
+                    should_exit, reason = should_exit_fixed_tp_sl(
+                        price, lot["entry_price"],
+                        tp_pct=fixed_tp_pct,
+                        sl_pct=fixed_sl_pct,
+                    )
+                elif use_dynamic_ema_adx:
                     tp_first = lot.get("tp_first_pct", DYNAMIC_TP_FIRST_PCT)
                     tp_step = lot.get("tp_step_pct", DYNAMIC_TP_STEP_PCT)
                     target_pct = lot.get("current_target_pct", tp_first)
@@ -404,7 +413,9 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    client = AlpacaClient()
+    # Alpaca backtest entrypoint; import client lazily so Binance-only workflows
+    # (e.g. backtest_binance.py) can import this module without requiring Alpaca.
+    from alpaca_client import AlpacaClient
     symbol = args.symbol or client.symbol
     tf = (args.timeframe or "1Day").strip()
     is_intraday = tf.lower() in ("5min", "1min", "5m", "1m", "15min", "15m", "1hour", "1h")

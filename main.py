@@ -1,15 +1,15 @@
 """
-Alpaca Trading Bot - entry point.
+Trading bot - entry point (Binance USD-M Futures).
 
 Usage:
-  1. Copy .env.example to .env and set ALPACA_API_KEY, ALPACA_SECRET_KEY.
-  2. Use paper trading URL in .env (default) for testing.
+  1. Copy .env.example to .env and set BINANCE_API_KEY, BINANCE_SECRET_KEY.
+  2. Use BINANCE_TESTNET=true for paper trading.
   3. Run: python main.py
 
 Stop with Ctrl+C.
 
-When PORT is set (e.g. on Heroku/Render), starts a tiny HTTP server so the
-platform sees the app as "up"; the bot runs in a background thread.
+When PORT is set (e.g. on DigitalOcean/Render), starts a tiny HTTP server so
+the platform sees the app as "up"; the bot runs in a background thread.
 """
 import os
 import threading

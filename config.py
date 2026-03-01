@@ -11,18 +11,7 @@ load_dotenv(_env_file)
 if not _env_file.exists():
     load_dotenv(Path.cwd() / ".env")
 
-# Broker: "alpaca" or "binance" (Binance = USD-M Futures, testnet for paper)
-BROKER = os.getenv("BROKER", "alpaca").strip().lower()
-
-# Alpaca API (required when BROKER=alpaca)
-ALPACA_API_KEY = os.getenv("ALPACA_API_KEY", "").strip()
-ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY", "").strip()
-ALPACA_BASE_URL = os.getenv(
-    "ALPACA_BASE_URL",
-    "https://paper-api.alpaca.markets",  # default: paper trading
-).strip()
-
-# Binance Futures API (required when BROKER=binance). Use testnet for paper trading.
+# Binance USD-M Futures API. Use demo/testnet for paper trading.
 BINANCE_API_KEY = os.getenv("BINANCE_API_KEY", os.getenv("BINANCE_TESTNET_API_KEY", "")).strip()
 BINANCE_SECRET_KEY = os.getenv("BINANCE_SECRET_KEY", os.getenv("BINANCE_TESTNET_SECRET", "")).strip()
 BINANCE_TESTNET = os.getenv("BINANCE_TESTNET", "true").strip().lower() in ("true", "1", "yes")
@@ -62,8 +51,11 @@ STOCH_D_PERIOD = int(os.getenv("STOCH_D_PERIOD", "3"))
 FIB_LOOKBACK = int(os.getenv("FIB_LOOKBACK", "20"))
 FIB_TOLERANCE_PCT = float(os.getenv("FIB_TOLERANCE_PCT", "0.01"))  # 1% of price
 
-# Exit: use dynamic TP/SL with EMA and ADX (first target 5%, then +5% steps; hold or take profit by EMA/ADX)
-USE_DYNAMIC_TP_EMA_ADX = os.getenv("USE_DYNAMIC_TP_EMA_ADX", "true").strip().lower() in ("true", "1", "yes")
+# Exit: fixed 1.5% TP / 1.5% SL (straight) or dynamic TP/SL with EMA/ADX
+USE_FIXED_TP_SL = os.getenv("USE_FIXED_TP_SL", "true").strip().lower() in ("true", "1", "yes")
+FIXED_TP_PCT = float(os.getenv("FIXED_TP_PCT", "0.015"))   # 1.5% take profit
+FIXED_SL_PCT = float(os.getenv("FIXED_SL_PCT", "0.015"))   # 1.5% stop loss
+USE_DYNAMIC_TP_EMA_ADX = os.getenv("USE_DYNAMIC_TP_EMA_ADX", "false").strip().lower() in ("true", "1", "yes")
 
 # Mode: "swing" = daily bars, fewer trades; "scalping" = intraday bars, more trades per day
 BOT_MODE = os.getenv("BOT_MODE", "swing").strip().lower()
@@ -83,24 +75,11 @@ SCALP_CHECK_INTERVAL = int(os.getenv("SCALP_CHECK_INTERVAL", "30"))   # seconds
 
 
 def validate_config() -> None:
-    """Raise if required env vars are missing for the selected broker."""
-    if BROKER == "binance":
-        if not BINANCE_API_KEY or not BINANCE_SECRET_KEY:
-            raise ValueError(
-                "Missing BINANCE_API_KEY or BINANCE_SECRET_KEY.\n"
-                f"Create a .env file in: {_project_dir}\n"
-                "With: BROKER=binance\n"
-                "  BINANCE_API_KEY=your_testnet_key\n"
-                "  BINANCE_SECRET_KEY=your_testnet_secret\n"
-                "Get keys from: https://testnet.binancefuture.com (Futures Testnet)"
-            )
-        return
-    if not ALPACA_API_KEY or not ALPACA_SECRET_KEY:
+    """Raise if required Binance env vars are missing."""
+    if not BINANCE_API_KEY or not BINANCE_SECRET_KEY:
         raise ValueError(
-            "Missing ALPACA_API_KEY or ALPACA_SECRET_KEY.\n"
+            "Missing BINANCE_API_KEY or BINANCE_SECRET_KEY.\n"
             f"Create a .env file in: {_project_dir}\n"
-            "With at least:\n"
-            "  ALPACA_API_KEY=your_key\n"
-            "  ALPACA_SECRET_KEY=your_secret\n"
-            "(Copy from .env.example and paste your Alpaca paper/live keys.)"
+            "With: BINANCE_API_KEY=... and BINANCE_SECRET_KEY=...\n"
+            "Demo keys: https://testnet.binancefuture.com (Futures Testnet)"
         )

@@ -527,10 +527,10 @@ TP_STEP_PCT = 0.05           # first target 5%, then add 5% each time (10%, 15%,
 RSI_TAKE_AT_TP = 65          # take profit when RSI ≤ 65 at current target; if RSI > 65 hold for next +5%
 MAX_TP_PCT = 0.50             # cap target at 50%
 
-# Dynamic TP/SL with EMA and ADX: first target 5%, +5% steps; stop = fixed % ladder
-DYNAMIC_TP_FIRST_PCT = 0.05      # first take profit level 5%
-DYNAMIC_TP_STEP_PCT = 0.03       # then +3% each step (8%, 11%, 14%, …)
-INITIAL_STOP_PCT = 0.03          # initial stop 3% below entry; then 0%, then previous targets as we advance
+# Dynamic TP/SL with EMA and ADX: first target 1.5%, +1% steps; stop = fixed % ladder
+DYNAMIC_TP_FIRST_PCT = 0.015     # first take profit level 1.5%
+DYNAMIC_TP_STEP_PCT = 0.01       # then +1% each step (2.5%, 3.5%, 4.5%, …)
+INITIAL_STOP_PCT = 0.015         # initial stop 1.5% below entry; then 0%, then previous targets as we advance
 EMA_TP_PERIOD = 20            # EMA period for "hold or take profit" at target
 ADX_TP_THRESHOLD = 25         # ADX >= this = strong trend → hold; below = take profit
 ADX_TP_FALLING_BARS = 3       # ADX falling over this many bars → take profit (trend weakening)
@@ -634,7 +634,7 @@ def should_exit_dynamic_ema_adx(
             entry_price,
             current_price,
             current_target_pct * 100,
-            f\"{raised_stop:.4f}\" if raised_stop is not None else \"None\",
+            f"{raised_stop:.4f}" if raised_stop is not None else "None",
         )
         return True, reason, current_target_pct, raised_stop
 
@@ -709,7 +709,7 @@ def should_exit_dynamic_ema_adx(
             current_target_pct * 100,
             current_price,
             entry_price,
-            f\"{raised_stop:.4f}\" if raised_stop is not None else \"None\",
+            f"{raised_stop:.4f}" if raised_stop is not None else "None",
         )
         return True, "take_profit", current_target_pct, raised_stop
 
@@ -727,6 +727,25 @@ def should_exit_dynamic_ema_adx(
         current_target_pct * 100,
     )
     return False, "", next_target, new_raised_stop
+
+
+# Fixed % TP/SL (straight exit: close at +X% or -X%)
+def should_exit_fixed_tp_sl(
+    current_price: float,
+    entry_price: float,
+    tp_pct: float = 0.015,
+    sl_pct: float = 0.015,
+) -> Tuple[bool, str]:
+    """Close at +tp_pct (take profit) or -sl_pct (stop loss). No trailing, no EMA/ADX."""
+    if entry_price <= 0:
+        return False, ""
+    tp_price = entry_price * (1 + tp_pct)
+    sl_price = entry_price * (1 - sl_pct)
+    if current_price >= tp_price:
+        return True, "take_profit"
+    if current_price <= sl_price:
+        return True, "stop_loss"
+    return False, ""
 
 
 # Stop-loss behaviour
@@ -764,4 +783,3 @@ def should_exit_tp_sl_trailing(
             return True, "trailing_stop"
         return True, "stop_loss"
     return False, ""
-
